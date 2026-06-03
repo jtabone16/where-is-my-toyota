@@ -18,7 +18,8 @@
       "Bash(curl -s \"http://localhost:3000/api/vspec?url=https%3A%2F%2Fguest.dealer.toyota.com%2Fv-spec%2F20122%2F5TDADAB5XTS046993%2Fdetail%3Fk%3D7552d8c58793e4a865452744d29b184d97d7b95ee399d1ad6b0ecf3ddeda8364\")",
       "Bash(python3 -c ' *)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(npm show *)"
     ]
   }
 }
