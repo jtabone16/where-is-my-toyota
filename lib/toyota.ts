@@ -105,3 +105,60 @@ export const CATEGORY_LABELS: Record<string, { label: string; description: strin
   F: { label: "In Transit", description: "Built and on its way to your dealer", step: 1 },
   G: { label: "At Dealer", description: "Arrived! Contact your salesperson", step: 2 },
 }
+
+export interface VehicleSnapshot {
+  dealerCategory: string
+  etaFrom?: string
+  etaTo?: string
+  holdStatus?: string
+  isAvailableForAppointment?: boolean
+}
+
+export interface SnapshotDiff {
+  field: string
+  label: string
+  old: string
+  new: string
+}
+
+export function extractSnapshot(data: VSpecData): VehicleSnapshot {
+  const eta = data.eta as { currFromDate?: string; currToDate?: string } | undefined
+  return {
+    dealerCategory: (data.dealerCategory as string) ?? "A",
+    etaFrom: eta?.currFromDate,
+    etaTo: eta?.currToDate,
+    holdStatus: (data.holdStatus as string) ?? undefined,
+    isAvailableForAppointment: (data.isAvailableForAppointment as boolean) ?? undefined,
+  }
+}
+
+export function diffSnapshots(prev: VehicleSnapshot, next: VehicleSnapshot): SnapshotDiff[] {
+  const diffs: SnapshotDiff[] = []
+
+  if (prev.dealerCategory !== next.dealerCategory) {
+    diffs.push({
+      field: "dealerCategory",
+      label: "Status",
+      old: CATEGORY_LABELS[prev.dealerCategory]?.label ?? prev.dealerCategory,
+      new: CATEGORY_LABELS[next.dealerCategory]?.label ?? next.dealerCategory,
+    })
+  }
+
+  const oldEta = [prev.etaFrom, prev.etaTo].filter(Boolean).join(" – ")
+  const newEta = [next.etaFrom, next.etaTo].filter(Boolean).join(" – ")
+  if (oldEta && newEta && oldEta !== newEta) {
+    diffs.push({ field: "eta", label: "ETA Window", old: oldEta, new: newEta })
+  } else if (!oldEta && newEta) {
+    diffs.push({ field: "eta", label: "ETA", old: "Unknown", new: newEta })
+  }
+
+  if (prev.holdStatus !== next.holdStatus && next.holdStatus) {
+    diffs.push({ field: "holdStatus", label: "Hold Status", old: prev.holdStatus ?? "None", new: next.holdStatus })
+  }
+
+  if (prev.isAvailableForAppointment === false && next.isAvailableForAppointment === true) {
+    diffs.push({ field: "appointment", label: "Appointment", old: "Not available", new: "Available — call your dealer!" })
+  }
+
+  return diffs
+}

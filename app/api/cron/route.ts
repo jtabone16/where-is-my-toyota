@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAllTracking, updateLastSeen } from "@/lib/db"
-import { fetchVSpec } from "@/lib/toyota"
+import { fetchVSpec, extractSnapshot, diffSnapshots } from "@/lib/toyota"
 import { sendStatusChangeEmail } from "@/lib/email"
 
-// Vercel Cron calls this with a GET request.
-// Protected by CRON_SECRET so it can't be triggered publicly.
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization")
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -12,27 +10,27 @@ export async function GET(req: NextRequest) {
   }
 
   const vehicles = await getAllTracking()
-  const results: { vin: string; changed: boolean; error?: string }[] = []
+  const results: { vin: string; changed: boolean; diffs?: string[]; error?: string }[] = []
 
   await Promise.all(
     vehicles.map(async (v) => {
       try {
         const data = await fetchVSpec({ vin: v.vin, dealerId: v.dealerId, hash: v.hash })
-        const newCategory = (data.dealerCategory as string) ?? v.lastCategory
+        const newSnapshot = extractSnapshot(data)
+        const diffs = diffSnapshots(v.lastSnapshot, newSnapshot)
 
-        if (newCategory !== v.lastCategory) {
+        if (diffs.length > 0) {
           await sendStatusChangeEmail({
             to: v.email,
             vin: v.vin,
             nickname: v.nickname,
-            oldCategory: v.lastCategory,
-            newCategory,
-            eta: data.eta as string | undefined,
+            diffs,
+            newSnapshot,
           })
-          await updateLastSeen(v.email, v.vin, newCategory)
-          results.push({ vin: v.vin, changed: true })
+          await updateLastSeen(v.email, v.vin, newSnapshot)
+          results.push({ vin: v.vin, changed: true, diffs: diffs.map(d => d.field) })
         } else {
-          await updateLastSeen(v.email, v.vin, newCategory)
+          await updateLastSeen(v.email, v.vin, newSnapshot)
           results.push({ vin: v.vin, changed: false })
         }
       } catch (err) {

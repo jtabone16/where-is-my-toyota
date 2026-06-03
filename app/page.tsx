@@ -28,9 +28,9 @@ function StatusProgress({ category }: { category: string }) {
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all ${
                   active
-                    ? "border-[#EB0A1E] bg-[#EB0A1E]/10 scale-110"
+                    ? "border-[#2D6A4F] bg-[#2D6A4F]/10 scale-110"
                     : done
-                    ? "border-[#EB0A1E] bg-[#EB0A1E]"
+                    ? "border-[#2D6A4F] bg-[#2D6A4F]"
                     : "border-zinc-700 bg-zinc-800"
                 }`}
               >
@@ -42,12 +42,12 @@ function StatusProgress({ category }: { category: string }) {
                   <span>{stage.icon}</span>
                 )}
               </div>
-              <span className={`mt-2 text-xs font-medium ${active ? "text-[#EB0A1E]" : done ? "text-zinc-300" : "text-zinc-600"}`}>
+              <span className={`mt-2 text-xs font-medium ${active ? "text-[#2D6A4F]" : done ? "text-zinc-300" : "text-zinc-600"}`}>
                 {stage.label}
               </span>
             </div>
             {i < STAGES.length - 1 && (
-              <div className={`flex-1 h-0.5 mx-2 mb-5 ${i < currentStep ? "bg-[#EB0A1E]" : "bg-zinc-700"}`} />
+              <div className={`flex-1 h-0.5 mx-2 mb-5 ${i < currentStep ? "bg-[#2D6A4F]" : "bg-zinc-700"}`} />
             )}
           </div>
         )
@@ -85,9 +85,9 @@ function VehicleCard({ result }: { result: LookupResult }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
       {/* Header */}
-      <div className="bg-[#EB0A1E] px-6 py-4 flex items-center justify-between">
+      <div className="bg-[#2D6A4F] px-6 py-4 flex items-center justify-between">
         <div>
-          <p className="text-white/70 text-xs uppercase tracking-widest font-medium">Toyota</p>
+          <p className="text-white/70 text-xs uppercase tracking-widest font-medium">Your Yota</p>
           <h2 className="text-white text-xl font-bold tracking-tight">
             {year ? `${year} ` : ""}
             {(data.marketingSeries as string) ?? "Vehicle"}
@@ -95,7 +95,7 @@ function VehicleCard({ result }: { result: LookupResult }) {
           {trim && <p className="text-white/70 text-xs mt-0.5 leading-tight">{trim}</p>}
         </div>
         {isArrived && (
-          <span className="bg-white text-[#EB0A1E] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+          <span className="bg-white text-[#2D6A4F] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
             It&apos;s here!
           </span>
         )}
@@ -218,20 +218,20 @@ function TrackForm({ result, onTracked }: { result: LookupResult; onTracked: () 
           placeholder="your@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-[#EB0A1E] transition-colors"
+          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-[#2D6A4F] transition-colors"
         />
         <input
           type="text"
           placeholder={`Nickname (e.g. "My 4Runner TRD Pro")`}
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-[#EB0A1E] transition-colors"
+          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-[#2D6A4F] transition-colors"
         />
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-[#EB0A1E] hover:bg-[#c40818] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors"
+          className="w-full bg-[#2D6A4F] hover:bg-[#1B4332] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-2.5 text-sm transition-colors"
         >
           {loading ? "Saving…" : "Notify me"}
         </button>
@@ -274,9 +274,7 @@ export default function Home() {
     <main className="min-h-screen flex flex-col">
       {/* Nav */}
       <nav className="border-b border-zinc-800 px-6 py-4 flex items-center gap-3">
-        <span className="text-[#EB0A1E] font-black text-lg tracking-tight">TOYOTA</span>
-        <span className="text-zinc-600">|</span>
-        <span className="text-zinc-400 text-sm font-medium">Order Tracker</span>
+        <span className="text-[#2D6A4F] font-black text-lg tracking-tight">🌲 WHERE'S MY YOTA?</span>
       </nav>
 
       <div className="flex-1 flex flex-col items-center px-4 pt-16 pb-20">
@@ -285,10 +283,10 @@ export default function Home() {
           {/* Hero */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold tracking-tight text-white">
-              Where is my Toyota?
+              Where&apos;s my Yota?
             </h1>
             <p className="text-zinc-500 text-base">
-              Paste your dealer&apos;s VSpec link and stop pestering your salesperson.
+              Paste your dealer&apos;s VSpec link and stop bugging your salesperson.
             </p>
           </div>
 
@@ -301,12 +299,12 @@ export default function Home() {
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="Paste your guest.dealer.toyota.com VSpec URL…"
                 required
-                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-[#EB0A1E] transition-colors pr-28"
+                className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-[#2D6A4F] transition-colors pr-28"
               />
               <button
                 type="submit"
                 disabled={loading || !url.trim()}
-                className="absolute right-2 top-2 bottom-2 bg-[#EB0A1E] hover:bg-[#c40818] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 text-sm transition-colors"
+                className="absolute right-2 top-2 bottom-2 bg-[#2D6A4F] hover:bg-[#1B4332] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 text-sm transition-colors"
               >
                 {loading ? "…" : "Look up"}
               </button>
@@ -371,7 +369,7 @@ export default function Home() {
       </div>
 
       <footer className="border-t border-zinc-800 px-6 py-4 text-center text-zinc-700 text-xs">
-        Not affiliated with Toyota. Built for the community. Status data from Toyota&apos;s dealer API.
+        Not affiliated with Toyota. Built by Yota owners, for Yota owners.
       </footer>
     </main>
   )

@@ -4,13 +4,15 @@ function getRedis() {
   return Redis.fromEnv()
 }
 
+import type { VehicleSnapshot } from "./toyota"
+
 export interface TrackedVehicle {
   vin: string
   dealerId: string
   hash: string
   email: string
   nickname: string
-  lastCategory: string
+  lastSnapshot: VehicleSnapshot
   lastChecked: number
 }
 
@@ -38,11 +40,11 @@ export async function getAllTracking(): Promise<TrackedVehicle[]> {
 export async function updateLastSeen(
   email: string,
   vin: string,
-  category: string
+  snapshot: VehicleSnapshot
 ): Promise<void> {
   const redis = getRedis()
   const key = trackKey(email, vin)
   const existing = await redis.get<TrackedVehicle>(key)
   if (!existing) return
-  await redis.set(key, { ...existing, lastCategory: category, lastChecked: Date.now() })
+  await redis.set(key, { ...existing, lastSnapshot: snapshot, lastChecked: Date.now() })
 }

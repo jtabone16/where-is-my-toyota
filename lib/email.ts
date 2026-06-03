@@ -1,88 +1,88 @@
 import { Resend } from "resend"
-import { CATEGORY_LABELS } from "./toyota"
+import { CATEGORY_LABELS, type VehicleSnapshot, type SnapshotDiff } from "./toyota"
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY)
 }
 
 function getFrom() {
-  return process.env.EMAIL_FROM ?? "noreply@whereismytoyota.com"
+  return process.env.EMAIL_FROM ?? "noreply@whereismyyota.com"
 }
 
 export async function sendStatusChangeEmail({
   to,
   vin,
   nickname,
-  oldCategory,
-  newCategory,
-  eta,
+  diffs,
+  newSnapshot,
 }: {
   to: string
   vin: string
   nickname: string
-  oldCategory: string
-  newCategory: string
-  eta?: string
+  diffs: SnapshotDiff[]
+  newSnapshot: VehicleSnapshot
 }) {
-  const oldLabel = CATEGORY_LABELS[oldCategory]?.label ?? oldCategory
-  const newLabel = CATEGORY_LABELS[newCategory]?.label ?? newCategory
-  const newDesc = CATEGORY_LABELS[newCategory]?.description ?? ""
-
-  const isArrived = newCategory === "G"
+  const isArrived = newSnapshot.dealerCategory === "G"
+  const isAppointmentReady = diffs.some(d => d.field === "appointment")
 
   const subject = isArrived
-    ? `🎉 Your Toyota is at the dealer! — ${nickname}`
-    : `Status update: ${nickname} moved to "${newLabel}"`
+    ? `🎉 Your Yota is at the dealer! — ${nickname}`
+    : isAppointmentReady
+    ? `📅 Your Yota is ready for pickup! — ${nickname}`
+    : `Update on your Yota — ${nickname}`
+
+  const diffRows = diffs.map(d => `
+    <tr>
+      <td style="padding:10px 16px;color:#6b7280;font-size:13px;white-space:nowrap;border-bottom:1px solid #f3f4f6">${d.label}</td>
+      <td style="padding:10px 16px;font-size:13px;border-bottom:1px solid #f3f4f6">
+        <span style="color:#9ca3af;text-decoration:line-through">${d.old}</span>
+        <span style="margin:0 8px;color:#d1d5db">→</span>
+        <strong style="color:#111827">${d.new}</strong>
+      </td>
+    </tr>
+  `).join("")
+
+  const categoryInfo = CATEGORY_LABELS[newSnapshot.dealerCategory]
+  const etaStr = [newSnapshot.etaFrom, newSnapshot.etaTo].filter(Boolean).join(" – ")
 
   const html = `
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f4f5; margin: 0; padding: 40px 20px; }
-    .card { background: white; border-radius: 12px; max-width: 520px; margin: 0 auto; overflow: hidden; }
-    .header { background: #EB0A1E; padding: 24px 32px; }
-    .header h1 { color: white; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
-    .header p { color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 14px; }
-    .body { padding: 32px; }
-    .status-row { display: flex; align-items: center; gap: 16px; margin: 20px 0; }
-    .badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
-    .badge-old { background: #f4f4f5; color: #71717a; }
-    .badge-new { background: ${isArrived ? '#dcfce7' : '#fef3c7'}; color: ${isArrived ? '#166534' : '#92400e'}; }
-    .arrow { color: #a1a1aa; font-size: 18px; }
-    .desc { color: #3f3f46; font-size: 15px; margin: 16px 0; }
-    .vin { font-family: monospace; font-size: 13px; color: #71717a; background: #f4f4f5; padding: 8px 12px; border-radius: 6px; }
-    .eta { margin-top: 16px; padding: 12px 16px; background: #f0fdf4; border-left: 3px solid #22c55e; border-radius: 4px; font-size: 14px; color: #166534; }
-    .footer { padding: 20px 32px; border-top: 1px solid #f4f4f5; font-size: 12px; color: #a1a1aa; }
-    .footer a { color: #a1a1aa; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <h1>Where Is My Toyota?</h1>
-      <p>${nickname}</p>
+<head><meta charset="utf-8"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:40px 20px">
+  <div style="background:white;border-radius:12px;max-width:520px;margin:0 auto;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)">
+
+    <div style="background:#2D6A4F;padding:24px 32px">
+      <p style="color:rgba(255,255,255,.7);margin:0 0 4px;font-size:12px;letter-spacing:.1em;text-transform:uppercase">Where's My Yota?</p>
+      <h1 style="color:white;margin:0;font-size:22px;font-weight:700">${nickname}</h1>
     </div>
-    <div class="body">
-      <p style="color:#18181b;font-size:16px;margin-top:0">Your vehicle status changed:</p>
-      <div class="status-row">
-        <span class="badge badge-old">${oldLabel}</span>
-        <span class="arrow">→</span>
-        <span class="badge badge-new">${newLabel}</span>
-      </div>
-      <p class="desc">${newDesc}</p>
-      <div class="vin">VIN: ${vin}</div>
-      ${eta ? `<div class="eta"><strong>ETA:</strong> ${eta}</div>` : ""}
+
+    <div style="padding:28px 32px">
+      <p style="color:#111827;font-size:15px;margin:0 0 20px">Something changed on your order:</p>
+
+      <table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;overflow:hidden;margin-bottom:20px">
+        ${diffRows}
+      </table>
+
+      ${categoryInfo ? `
+      <div style="background:#f0fdf4;border-left:3px solid #2D6A4F;padding:12px 16px;border-radius:4px;margin-bottom:20px">
+        <p style="margin:0;color:#166534;font-size:14px"><strong>${categoryInfo.label}:</strong> ${categoryInfo.description}</p>
+      </div>` : ""}
+
+      ${etaStr ? `
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:12px 16px;border-radius:8px">
+        <p style="margin:0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.05em">Current ETA</p>
+        <p style="margin:4px 0 0;color:#166534;font-size:16px;font-weight:600">${etaStr}</p>
+      </div>` : ""}
     </div>
-    <div class="footer">
-      You're receiving this because you signed up to track this vehicle.<br>
-      <a href="#">Unsubscribe</a>
+
+    <div style="padding:16px 32px;border-top:1px solid #f3f4f6;font-size:12px;color:#9ca3af">
+      VIN: <span style="font-family:monospace">${vin}</span><br>
+      Not affiliated with Toyota. Built by Yota owners, for Yota owners.
     </div>
   </div>
 </body>
-</html>
-  `.trim()
+</html>`.trim()
 
   await getResend().emails.send({
     from: getFrom(),

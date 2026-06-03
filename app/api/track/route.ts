@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { parseVSpecUrl, fetchVSpec } from "@/lib/toyota"
+import { parseVSpecUrl, fetchVSpec, extractSnapshot } from "@/lib/toyota"
 import { saveTracking } from "@/lib/db"
 
 export async function POST(req: NextRequest) {
@@ -19,11 +19,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not parse VSpec URL" }, { status: 422 })
   }
 
-  // Fetch current status to seed lastCategory
-  let lastCategory = "A"
+  let lastSnapshot = { dealerCategory: "A" }
   try {
     const data = await fetchVSpec(parsed)
-    lastCategory = (data.dealerCategory as string) ?? "A"
+    lastSnapshot = extractSnapshot(data)
   } catch {
     // Non-fatal: save with fallback
   }
@@ -32,7 +31,7 @@ export async function POST(req: NextRequest) {
     ...parsed,
     email,
     nickname: nickname || parsed.vin,
-    lastCategory,
+    lastSnapshot,
     lastChecked: Date.now(),
   })
 

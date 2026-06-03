@@ -9,9 +9,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        toyota: {
-          red: "#EB0A1E",
-          dark: "#1a0000",
+        yota: {
+          green: "#2D6A4F",
+          light: "#40916C",
+          dark: "#1B4332",
         },
       },
     },
