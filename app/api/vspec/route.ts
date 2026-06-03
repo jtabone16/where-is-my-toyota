@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { parseVSpecUrl, fetchVSpec } from "@/lib/toyota"
+import { lookupLimiter } from "@/lib/ratelimit"
 
 export async function GET(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
+  const { success } = await lookupLimiter.limit(ip)
+  if (!success) {
+    return NextResponse.json({ error: "Too many lookups — try again in an hour." }, { status: 429 })
+  }
+
   const url = req.nextUrl.searchParams.get("url")
   if (!url) {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400 })

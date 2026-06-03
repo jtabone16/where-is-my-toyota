@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { parseVSpecUrl, fetchVSpec, extractSnapshot } from "@/lib/toyota"
 import { saveTracking } from "@/lib/db"
+import { trackLimiter } from "@/lib/ratelimit"
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
+  const { success } = await trackLimiter.limit(ip)
+  if (!success) {
+    return NextResponse.json({ error: "Too many signups from this IP today." }, { status: 429 })
+  }
+
   const body = await req.json()
   const { url, email, nickname } = body as {
     url?: string
