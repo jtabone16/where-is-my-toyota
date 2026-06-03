@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.rti.toyota.com)",
+      "WebFetch(domain:www.4runner6g.com)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s \"http://localhost:3000/api/vspec?url=https://api.rti.toyota.com/marketplace-inventory/vehicles/20122/5TDADAB5XTS046993/hash/7552d8c58793e4a865452744d29b184d97d7b95ee399d1ad6b0ecf3ddeda8364/vspec%3FincludeMediaSource%3DPORT\")",
+      "Bash(python3 -m json.tool)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(curl -si 'https://api.rti.toyota.com/marketplace-inventory/vehicles/20122/5TDADAB5XTS046993/hash/7552d8c58793e4a865452744d29b184d97d7b95ee399d1ad6b0ecf3ddeda8364/vspec?includeMediaSource=PORT' -H 'Accept: application/json' -H 'Referer: https://guest.dealer.toyota.com/' -H 'Origin: https://guest.dealer.toyota.com' -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/125.0.0.0 Safari/537.36' -H 'Cookie: aws-waf-token=fake-test-token')",
+      "Bash(curl -s \"https://ac33386d318f.us-west-2.sdk.awswaf.com/ac33386d318f/76905d35c398/challenge.js\")",
+      "Bash(curl -si 'https://api.rti.toyota.com/token-service/public?tokenName=vspec' -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Referer: https://guest.dealer.toyota.com/' -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36')",
+      "Bash(curl -si 'https://api.rti.toyota.com/marketplace-inventory/vehicles/20122/5TDADAB5XTS046993/hash/7552d8c58793e4a865452744d29b184d97d7b95ee399d1ad6b0ecf3ddeda8364/vspec?includeMediaSource=PORT' -H 'Accept: application/json' -H 'Referer: https://guest.dealer.toyota.com/' -H 'Origin: https://guest.dealer.toyota.com' -H 'User-Agent: Mozilla/5.0' -H 'x-api-key: 2a54f2c2bab955c189c3a65c9ca754cc')",
+      "Bash(curl -s \"http://localhost:3000/api/vspec?url=https%3A%2F%2Fguest.dealer.toyota.com%2Fv-spec%2F20122%2F5TDADAB5XTS046993%2Fdetail%3Fk%3D7552d8c58793e4a865452744d29b184d97d7b95ee399d1ad6b0ecf3ddeda8364\")",
+      "Bash(python3 -c ' *)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

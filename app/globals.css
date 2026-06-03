@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --toyota-red: #EB0A1E;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #09090b;
+  color: #fafafa;
+}
