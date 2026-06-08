@@ -74,10 +74,16 @@ async function getApiKey(): Promise<string> {
       next: { revalidate: 3600 }, // cache for 1 hour
     }
   )
-  if (!res.ok) throw new Error(`Token service returned ${res.status}`)
-  const json = await res.json()
-  const key = json?.tokenDetails?.ui
-  if (!key) throw new Error("No ui token in token service response")
+  const text = await res.text()
+  if (!res.ok) throw new Error(`Token service returned ${res.status}: ${text.slice(0, 200)}`)
+  let json: unknown
+  try {
+    json = JSON.parse(text)
+  } catch {
+    throw new Error(`Token service returned non-JSON: ${text.slice(0, 200)}`)
+  }
+  const key = (json as Record<string, unknown> & { tokenDetails?: { ui?: string } })?.tokenDetails?.ui
+  if (!key) throw new Error(`No ui token in response: ${text.slice(0, 200)}`)
   return key
 }
 
