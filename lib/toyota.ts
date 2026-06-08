@@ -88,22 +88,28 @@ async function getApiKey(): Promise<string> {
 }
 
 export async function fetchVSpec(params: ParsedVSpecUrl): Promise<VSpecData> {
-  const apiKey = await getApiKey()
+  let apiKey: string | null = null
+  try {
+    apiKey = await getApiKey()
+  } catch {
+    // token endpoint broken — try without key
+  }
+
   const url = buildApiUrl(params)
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      Referer: "https://guest.dealer.toyota.com/",
-      Origin: "https://guest.dealer.toyota.com",
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-      "x-api-key": apiKey,
-    },
-    cache: "no-store",
-  })
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    Referer: "https://guest.dealer.toyota.com/",
+    Origin: "https://guest.dealer.toyota.com",
+    "User-Agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  }
+  if (apiKey) headers["x-api-key"] = apiKey
+
+  const res = await fetch(url, { headers, cache: "no-store" })
 
   if (!res.ok) {
-    throw new Error(`Toyota API returned ${res.status}`)
+    const body = await res.text()
+    throw new Error(`Toyota API returned ${res.status}: ${body.slice(0, 200)}`)
   }
 
   return res.json()
