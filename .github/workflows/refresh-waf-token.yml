@@ -1,0 +1,68 @@
+name: Refresh WAF token
+
+# Solves the Toyota AWS WAF challenge and caches a reusable token in Redis.
+#
+# GitHub's scheduled cron has a 5-min minimum and is frequently delayed under
+# load, which would leave gaps if the token TTL is short. To get a reliable
+# cadence we run ONE job that loops internally for ~50 min, refreshing every
+# REFRESH_INTERVAL seconds, and let the schedule re-launch it.
+#
+# NOTE: free GitHub Actions minutes are unlimited for public repos and 2,000/mo
+# for private repos. A ~50-min looping job ≈ 50 min per run. If this repo is
+# private, widen the cron interval or shorten LOOP_MINUTES to stay in budget.
+
+on:
+  schedule:
+    - cron: '*/55 * * * *' # relaunch shortly before the loop self-exits
+  workflow_dispatch: {} # allow manual runs
+
+concurrency:
+  group: refresh-waf-token
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      SEED_VSPEC_URL: ${{ secrets.SEED_VSPEC_URL }}
+      # Refresh cadence and total loop duration. Tune REFRESH_INTERVAL to the
+      # measured token TTL (start conservative).
+      REFRESH_INTERVAL: '240' # seconds between refreshes (4 min)
+      LOOP_MINUTES: '50' # total wall-clock to loop before exiting
+      TOKEN_TTL_SECONDS: '600' # Redis expiry on the cached token (10 min)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install solver deps
+        working-directory: scripts/waf-solver
+        run: npm install
+
+      - name: Install Chromium
+        working-directory: scripts/waf-solver
+        run: npx playwright install --with-deps chromium
+
+      - name: Solve + refresh loop
+        working-directory: scripts/waf-solver
+        run: |
+          end=$(( $(date +%s) + LOOP_MINUTES * 60 ))
+          attempt=0
+          while [ "$(date +%s)" -lt "$end" ]; do
+            attempt=$((attempt + 1))
+            echo "::group::Refresh attempt $attempt"
+            if node solve.mjs; then
+              echo "refresh ok"
+            else
+              echo "::warning::refresh attempt $attempt failed"
+            fi
+            echo "::endgroup::"
+            # Stop sleeping if the next interval would run past the loop window.
+            [ "$(( $(date +%s) + REFRESH_INTERVAL ))" -ge "$end" ] && break
+            sleep "$REFRESH_INTERVAL"
+          done

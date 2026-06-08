@@ -1,0 +1,15 @@
+{
+  "name": "waf-solver",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Solves the AWS WAF challenge on guest.dealer.toyota.com and caches a reusable token in Redis. Runs in CI, NOT part of the Next.js app.",
+  "scripts": {
+    "solve": "node solve.mjs"
+  },
+  "dependencies": {
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "playwright": "^1.49.0"
+  }
+}

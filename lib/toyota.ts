@@ -1,3 +1,5 @@
+import { Redis } from "@upstash/redis"
+
 export interface VSpecData {
   vin?: string
   dealerCategory?: string
@@ -60,55 +62,61 @@ export function buildApiUrl(params: ParsedVSpecUrl): string {
   )
 }
 
-async function getApiKey(): Promise<string> {
-  const res = await fetch(
-    "https://api.rti.toyota.com/token-service/public?tokenName=vspec",
-    {
-      headers: {
-        Accept: "application/json",
-        Referer: "https://guest.dealer.toyota.com/",
-        Origin: "https://guest.dealer.toyota.com",
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-      },
-      next: { revalidate: 3600 }, // cache for 1 hour
-    }
-  )
-  const text = await res.text()
-  if (!res.ok) throw new Error(`Token service returned ${res.status}: ${text.slice(0, 200)}`)
-  let json: unknown
-  try {
-    json = JSON.parse(text)
-  } catch {
-    throw new Error(`Token service returned non-JSON: ${text.slice(0, 200)}`)
+// guest.dealer.toyota.com sits behind AWS WAF, which requires a token minted by
+// solving a browser-side challenge. We can't do that in a serverless function,
+// so a scheduled GitHub Action (scripts/waf-solver) solves it with a stealth
+// headless browser and caches the result in Redis. Here we just read it back.
+//
+// Cached blob shape: { wafToken: string, uiToken: string, ts: number }
+interface CachedWafToken {
+  wafToken: string
+  uiToken: string
+  ts: number
+}
+
+const WAF_TOKEN_KEY = "waf:vspec"
+
+async function getCachedWafToken(): Promise<CachedWafToken> {
+  const value = await Redis.fromEnv().get<CachedWafToken | string>(WAF_TOKEN_KEY)
+  if (!value) {
+    throw new Error(
+      "No WAF token cached — the token refresher (GitHub Action) may be down or hasn't run yet."
+    )
   }
-  const key = (json as Record<string, unknown> & { tokenDetails?: { ui?: string } })?.tokenDetails?.ui
-  if (!key) throw new Error(`No ui token in response: ${text.slice(0, 200)}`)
-  return key
+  // Upstash may return the JSON already-parsed or as a string depending on how it was stored.
+  const parsed: CachedWafToken =
+    typeof value === "string" ? (JSON.parse(value) as CachedWafToken) : value
+  if (!parsed.wafToken || !parsed.uiToken) {
+    throw new Error("Cached WAF token is malformed.")
+  }
+  return parsed
 }
 
 export async function fetchVSpec(params: ParsedVSpecUrl): Promise<VSpecData> {
-  let apiKey: string | null = null
-  try {
-    apiKey = await getApiKey()
-  } catch {
-    // token endpoint broken — try without key
-  }
+  const { wafToken, uiToken } = await getCachedWafToken()
 
   const url = buildApiUrl(params)
-  const headers: Record<string, string> = {
-    Accept: "application/json",
-    Referer: "https://guest.dealer.toyota.com/",
-    Origin: "https://guest.dealer.toyota.com",
-    "User-Agent":
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-  }
-  if (apiKey) headers["x-api-key"] = apiKey
-
-  const res = await fetch(url, { headers, cache: "no-store" })
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      Referer: "https://guest.dealer.toyota.com/",
+      Origin: "https://guest.dealer.toyota.com",
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+      "x-api-key": uiToken,
+      Cookie: `aws-waf-token=${wafToken}`,
+    },
+    cache: "no-store",
+  })
 
   if (!res.ok) {
     const body = await res.text()
+    const wafAction = res.headers.get("x-amzn-waf-action")
+    if (res.status === 202 || wafAction === "challenge" || res.status === 403) {
+      throw new Error(
+        `Toyota API rejected the cached WAF token (status ${res.status}). It likely expired — the refresher should mint a new one shortly.`
+      )
+    }
     throw new Error(`Toyota API returned ${res.status}: ${body.slice(0, 200)}`)
   }
 
