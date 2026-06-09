@@ -16,6 +16,69 @@ export function getFrom() {
   return addr.includes("<") ? addr : `"Where's My Yota" <${addr}>`
 }
 
+export async function sendWelcomeEmail({
+  to,
+  vin,
+  nickname,
+  snapshot,
+}: {
+  to: string
+  vin: string
+  nickname: string
+  snapshot: VehicleSnapshot
+}) {
+  const categoryInfo = CATEGORY_LABELS[snapshot.dealerCategory]
+  const etaStr = [snapshot.etaFrom, snapshot.etaTo].filter(Boolean).join(" – ")
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:40px 20px">
+  <div style="background:white;border-radius:12px;max-width:520px;margin:0 auto;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)">
+
+    <div style="background:#2D6A4F;padding:24px 32px">
+      <p style="color:rgba(255,255,255,.7);margin:0 0 4px;font-size:12px;letter-spacing:.1em;text-transform:uppercase">Where's My Yota?</p>
+      <h1 style="color:white;margin:0;font-size:22px;font-weight:700">${nickname}</h1>
+    </div>
+
+    <div style="padding:28px 32px">
+      <p style="color:#111827;font-size:15px;margin:0 0 12px"><strong>You're all set! 🎉</strong></p>
+      <p style="color:#374151;font-size:14px;margin:0 0 20px;line-height:1.5">
+        We're now tracking your Toyota. You don't need to do anything else — we'll email you the moment
+        its status changes, so you can stop pinging your salesperson.
+      </p>
+
+      ${categoryInfo ? `
+      <div style="background:#f0fdf4;border-left:3px solid #2D6A4F;padding:12px 16px;border-radius:4px;margin-bottom:${etaStr ? "12px" : "0"}">
+        <p style="margin:0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.05em">Current status</p>
+        <p style="margin:4px 0 0;color:#166534;font-size:15px;font-weight:600">${categoryInfo.label}</p>
+        <p style="margin:2px 0 0;color:#166534;font-size:13px">${categoryInfo.description}</p>
+      </div>` : ""}
+
+      ${etaStr ? `
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:12px 16px;border-radius:8px">
+        <p style="margin:0;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:.05em">Current ETA</p>
+        <p style="margin:4px 0 0;color:#166534;font-size:16px;font-weight:600">${etaStr}</p>
+      </div>` : ""}
+    </div>
+
+    <div style="padding:16px 32px;border-top:1px solid #f3f4f6;font-size:12px;color:#9ca3af">
+      VIN: <span style="font-family:monospace">${vin}</span><br>
+      Not affiliated with Toyota. Built by Yota owners, for Yota owners.
+    </div>
+  </div>
+</body>
+</html>`.trim()
+
+  await getResend().emails.send({
+    from: getFrom(),
+    to,
+    subject: `You're tracking ${nickname} 🚗`,
+    html,
+  })
+}
+
 export async function sendStatusChangeEmail({
   to,
   vin,

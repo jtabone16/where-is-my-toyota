@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { parseVSpecUrl, fetchVSpec, extractSnapshot } from "@/lib/toyota"
 import { saveTracking } from "@/lib/db"
 import { trackLimiter } from "@/lib/ratelimit"
+import { sendWelcomeEmail } from "@/lib/email"
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous"
@@ -34,13 +35,27 @@ export async function POST(req: NextRequest) {
     // Non-fatal: save with fallback
   }
 
+  const resolvedNickname = nickname || parsed.vin
+
   await saveTracking({
     ...parsed,
     email,
-    nickname: nickname || parsed.vin,
+    nickname: resolvedNickname,
     lastSnapshot,
     lastChecked: Date.now(),
   })
+
+  // Confirmation email is best-effort — never fail the signup if mail hiccups.
+  try {
+    await sendWelcomeEmail({
+      to: email,
+      vin: parsed.vin,
+      nickname: resolvedNickname,
+      snapshot: lastSnapshot,
+    })
+  } catch (err) {
+    console.error("welcome email failed:", err instanceof Error ? err.message : err)
+  }
 
   return NextResponse.json({ ok: true, vin: parsed.vin })
 }
