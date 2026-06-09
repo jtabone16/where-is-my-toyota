@@ -5,8 +5,15 @@ function getResend() {
   return new Resend(process.env.RESEND_API_KEY)
 }
 
-function getFrom() {
-  return process.env.EMAIL_FROM ?? "noreply@whereismyyota.com"
+// The live sender is the EMAIL_FROM env var (set in Vercel). It must be an
+// address on a domain you've verified in Resend, otherwise sends fail.
+// `onboarding@resend.dev` is Resend's always-verified fallback — works with no
+// DNS setup, just less branded.
+export function getFrom() {
+  const addr = process.env.EMAIL_FROM ?? "onboarding@resend.dev"
+  // If a display name is already present (e.g. `Name <a@b.com>`), respect it;
+  // otherwise wrap the bare address so inboxes show "Where's My Yota".
+  return addr.includes("<") ? addr : `"Where's My Yota" <${addr}>`
 }
 
 export async function sendStatusChangeEmail({
