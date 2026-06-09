@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { CATEGORY_LABELS, type VSpecData, type ParsedVSpecUrl } from "@/lib/toyota"
 
 interface LookupResult {
@@ -13,6 +13,11 @@ const STAGES = [
   { key: "F", label: "In Transit", icon: "🚢" },
   { key: "G", label: "At Dealer", icon: "🏁" },
 ]
+
+// Rebuild a parseable v-spec URL from a result, so Refresh works regardless of
+// what's currently typed in the lookup box.
+const refreshUrl = (r: LookupResult) =>
+  `https://api.rti.toyota.com/marketplace-inventory/vehicles/${r.parsed.dealerId}/${r.parsed.vin}/hash/${r.parsed.hash}/vspec`
 
 const usd = (n?: number) =>
   typeof n === "number"
@@ -471,15 +476,17 @@ export default function Home() {
   const [result, setResult] = useState<LookupResult | null>(null)
   const [tracked, setTracked] = useState(false)
 
-  async function handleLookup(e: React.FormEvent) {
-    e.preventDefault()
+  async function runLookup(targetUrl: string, { persist = true } = {}) {
+    const trimmed = targetUrl.trim()
+    if (!trimmed) return
+
     setLoading(true)
     setError("")
     setResult(null)
     setTracked(false)
 
     try {
-      const res = await fetch(`/api/vspec?url=${encodeURIComponent(url)}`)
+      const res = await fetch(`/api/vspec?url=${encodeURIComponent(trimmed)}`)
       const json = await res.json()
 
       if (!res.ok) {
@@ -487,12 +494,37 @@ export default function Home() {
       }
 
       setResult(json as LookupResult)
+      // Persist the lookup in the address bar so a refresh / shared link / reopened
+      // tab re-runs it automatically — no need to paste the v-spec link again.
+      if (persist && typeof window !== "undefined") {
+        const next = `${window.location.pathname}?url=${encodeURIComponent(trimmed)}`
+        window.history.replaceState(null, "", next)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
       setLoading(false)
     }
   }
+
+  function handleLookup(e: React.FormEvent) {
+    e.preventDefault()
+    runLookup(url)
+  }
+
+  // On first load, if the URL carries a ?url= param (a previously searched
+  // v-spec link), prefill the box and run the lookup automatically.
+  const didAutoLoad = useRef(false)
+  useEffect(() => {
+    if (didAutoLoad.current) return
+    didAutoLoad.current = true
+    const fromUrl = new URLSearchParams(window.location.search).get("url")
+    if (fromUrl) {
+      setUrl(fromUrl)
+      runLookup(fromUrl, { persist: false })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -553,16 +585,38 @@ export default function Home() {
           {/* Results */}
           {result && (
             <>
-              <VehicleCard result={result} />
-              {!tracked && (
+              {/* Notify CTA sits up top — if you've got a v-spec link, you're here to track it */}
+              {!tracked ? (
                 <TrackForm result={result} onTracked={() => setTracked(true)} />
-              )}
-              {tracked && (
+              ) : (
                 <div className="rounded-xl border border-green-800/40 bg-green-950/20 px-6 py-5 flex items-center gap-3">
                   <span className="text-green-400 text-xl">✓</span>
                   <p className="text-green-300 font-medium">Tracking active — we&apos;ll email you when something changes.</p>
                 </div>
               )}
+
+              <div className="flex items-center justify-between">
+                <h2 className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">Your vehicle</h2>
+                <button
+                  type="button"
+                  onClick={() => runLookup(refreshUrl(result), { persist: false })}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white disabled:opacity-50 text-xs font-medium transition-colors"
+                >
+                  <svg
+                    className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {loading ? "Refreshing…" : "Refresh"}
+                </button>
+              </div>
+
+              <VehicleCard result={result} />
             </>
           )}
 
