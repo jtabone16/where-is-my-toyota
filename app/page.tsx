@@ -102,7 +102,15 @@ function StatusProgress({ category }: { category: string }) {
   )
 }
 
-function VehicleCard({ result }: { result: LookupResult }) {
+function VehicleCard({
+  result,
+  onRefresh,
+  refreshing,
+}: {
+  result: LookupResult
+  onRefresh: () => void
+  refreshing: boolean
+}) {
   const { data, parsed } = result
   const [photoView, setPhotoView] = useState<"exterior" | "interior">("exterior")
   const category = (data.dealerCategory as string) ?? "?"
@@ -181,17 +189,37 @@ function VehicleCard({ result }: { result: LookupResult }) {
           </h2>
           {trim && <p className="text-white/70 text-xs mt-0.5 leading-tight">{trim}</p>}
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          {isArrived && (
-            <span className="bg-white text-[#2D6A4F] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-              It&apos;s here!
-            </span>
-          )}
-          {unavailable && (
-            <span className="bg-white/15 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-              Reserved
-            </span>
-          )}
+        <div className="flex items-start gap-2">
+          <div className="flex flex-col items-end gap-1.5">
+            {isArrived && (
+              <span className="bg-white text-[#2D6A4F] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                It&apos;s here!
+              </span>
+            )}
+            {unavailable && (
+              <span className="bg-white/15 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                Reserved
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            title="Refresh status"
+            aria-label="Refresh status"
+            className="text-white/70 hover:text-white disabled:opacity-50 transition-colors p-1 -mr-1"
+          >
+            <svg
+              className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -252,6 +280,8 @@ function VehicleCard({ result }: { result: LookupResult }) {
             <p className="text-green-300 font-semibold">{rawEta}</p>
           </div>
         )}
+
+        <TrackForm result={result} />
 
         {price?.totalMsrp && (
           <div className="mt-3 p-4 rounded-lg bg-zinc-800/60 border border-zinc-700">
@@ -390,7 +420,7 @@ function VehicleCard({ result }: { result: LookupResult }) {
   )
 }
 
-function TrackForm({ result, onTracked }: { result: LookupResult; onTracked: () => void }) {
+function TrackForm({ result }: { result: LookupResult }) {
   const [email, setEmail] = useState("")
   const [nickname, setNickname] = useState("")
   const [loading, setLoading] = useState(false)
@@ -416,7 +446,6 @@ function TrackForm({ result, onTracked }: { result: LookupResult; onTracked: () 
         throw new Error(json.error ?? "Failed to save")
       }
       setDone(true)
-      onTracked()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
@@ -426,35 +455,39 @@ function TrackForm({ result, onTracked }: { result: LookupResult; onTracked: () 
 
   if (done) {
     return (
-      <div className="rounded-xl border border-green-800/40 bg-green-950/20 px-6 py-5 flex items-center gap-3">
+      <div className="mt-3 p-4 rounded-lg bg-green-950/40 border border-green-800/40 flex items-center gap-3">
         <span className="text-green-400 text-xl">✓</span>
         <div>
           <p className="text-green-300 font-medium">You&apos;re on the list!</p>
-          <p className="text-green-600 text-sm">We&apos;ll email {email} when the status changes.</p>
+          <p className="text-green-500 text-sm">We&apos;ll email {email} the moment the status changes.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-6 py-5">
-      <h3 className="text-white font-semibold mb-1">Get notified on status changes</h3>
-      <p className="text-zinc-500 text-sm mb-4">We&apos;ll email you when your vehicle moves to the next stage — no more pinging the salesperson.</p>
-      <form onSubmit={handleSubmit} className="space-y-3">
+    <div className="mt-3 p-4 rounded-lg bg-[#2D6A4F]/15 border border-[#2D6A4F]/40">
+      <p className="text-white font-semibold flex items-center gap-2">
+        <span aria-hidden>🔔</span> Get status updates
+      </p>
+      <p className="text-zinc-400 text-sm mt-0.5 mb-3">
+        We&apos;ll email you the moment it moves to the next stage — no more pinging the salesperson.
+      </p>
+      <form onSubmit={handleSubmit} className="space-y-2.5">
         <input
           type="email"
           required
           placeholder="your@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-[#2D6A4F] transition-colors"
+          className="w-full bg-zinc-900/70 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-[#2D6A4F] transition-colors"
         />
         <input
           type="text"
           placeholder={`Nickname (e.g. "My 4Runner TRD Pro")`}
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
-          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-[#2D6A4F] transition-colors"
+          className="w-full bg-zinc-900/70 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-[#2D6A4F] transition-colors"
         />
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <button
@@ -474,7 +507,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [result, setResult] = useState<LookupResult | null>(null)
-  const [tracked, setTracked] = useState(false)
 
   async function runLookup(targetUrl: string, { persist = true } = {}) {
     const trimmed = targetUrl.trim()
@@ -483,7 +515,6 @@ export default function Home() {
     setLoading(true)
     setError("")
     setResult(null)
-    setTracked(false)
 
     try {
       const res = await fetch(`/api/vspec?url=${encodeURIComponent(trimmed)}`)
@@ -584,40 +615,12 @@ export default function Home() {
 
           {/* Results */}
           {result && (
-            <>
-              {/* Notify CTA sits up top — if you've got a v-spec link, you're here to track it */}
-              {!tracked ? (
-                <TrackForm result={result} onTracked={() => setTracked(true)} />
-              ) : (
-                <div className="rounded-xl border border-green-800/40 bg-green-950/20 px-6 py-5 flex items-center gap-3">
-                  <span className="text-green-400 text-xl">✓</span>
-                  <p className="text-green-300 font-medium">Tracking active — we&apos;ll email you when something changes.</p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <h2 className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">Your vehicle</h2>
-                <button
-                  type="button"
-                  onClick={() => runLookup(refreshUrl(result), { persist: false })}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 text-zinc-400 hover:text-white disabled:opacity-50 text-xs font-medium transition-colors"
-                >
-                  <svg
-                    className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {loading ? "Refreshing…" : "Refresh"}
-                </button>
-              </div>
-
-              <VehicleCard result={result} />
-            </>
+            <VehicleCard
+              key={result.parsed.vin}
+              result={result}
+              onRefresh={() => runLookup(refreshUrl(result), { persist: false })}
+              refreshing={loading}
+            />
           )}
 
           {/* How it works */}
