@@ -14,6 +14,11 @@ const STAGES = [
   { key: "G", label: "At Dealer", icon: "🏁" },
 ]
 
+const usd = (n?: number) =>
+  typeof n === "number"
+    ? n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })
+    : undefined
+
 function StatusProgress({ category }: { category: string }) {
   const currentStep = CATEGORY_LABELS[category]?.step ?? 0
 
@@ -62,12 +67,15 @@ function VehicleCard({ result }: { result: LookupResult }) {
   const info = CATEGORY_LABELS[category]
   const isArrived = category === "G"
 
-  const extColor = data.extColor as { marketingName?: string; colorHexCd?: string } | undefined
+  const extColor = data.extColor as { marketingName?: string; colorHexCd?: string; colorCd?: string } | undefined
   const colorName = extColor?.marketingName?.replace(/\[.*?\]/g, "").trim()
   const colorHex = extColor?.colorHexCd
+  const extColorCd = extColor?.colorCd
 
-  const intColor = data.intColor as { marketingName?: string } | undefined
+  const intColor = data.intColor as { marketingName?: string; colorCd?: string; colorSwatch?: string } | undefined
   const intColorName = intColor?.marketingName?.replace(/\[.*?\]/g, "").trim()
+  const intColorCd = intColor?.colorCd
+  const intColorSwatch = intColor?.colorSwatch
 
   const modelObj = data.model as { marketingName?: string } | undefined
   const trim = modelObj?.marketingName ?? (data.grade as string | undefined)
@@ -81,6 +89,34 @@ function VehicleCard({ result }: { result: LookupResult }) {
 
   const carImage = (data.media as Array<{ type: string; size?: string; href: string }> | undefined)
     ?.find(m => m.type === "exterior" && m.size === "680_383_PNG")?.href
+
+  // Pricing
+  const price = data.price as
+    | { baseMsrp?: number; totalMsrp?: number; optTotalMsrp?: number; dph?: number }
+    | undefined
+
+  // Specs
+  const engine = data.engine as { name?: string; horsepower?: string; fuelType?: string } | undefined
+  const drivetrain = data.drivetrain as { title?: string; code?: string } | undefined
+  const transmission = data.transmission as { transmissionType?: string } | undefined
+  const mpg = data.mpg as { city?: number; highway?: number; combined?: number } | undefined
+  const seating = data.seating as number | undefined
+  const stockNum = data.stockNum as string | undefined
+
+  // Options / packages (strip MSRP=0 boilerplate like "50 State Emissions")
+  const options = (
+    (data.options as Array<{ marketingName?: string; msrp?: number; packageInd?: boolean }> | undefined) ?? []
+  ).filter(o => o.marketingName && (o.msrp ?? 0) > 0)
+
+  const specs: { label: string; value: string }[] = []
+  if (engine?.name) specs.push({ label: "Engine", value: engine.name })
+  if (engine?.horsepower) specs.push({ label: "Horsepower", value: `${engine.horsepower} hp` })
+  if (drivetrain?.title) specs.push({ label: "Drivetrain", value: drivetrain.title })
+  if (transmission?.transmissionType) specs.push({ label: "Transmission", value: transmission.transmissionType })
+  if (mpg && (mpg.city || mpg.highway))
+    specs.push({ label: "MPG", value: `${mpg.city ?? "?"} city / ${mpg.highway ?? "?"} hwy` })
+  if (seating) specs.push({ label: "Seating", value: `${seating} passengers` })
+  if (stockNum) specs.push({ label: "Stock #", value: stockNum })
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
@@ -123,6 +159,35 @@ function VehicleCard({ result }: { result: LookupResult }) {
           </div>
         )}
 
+        {price?.totalMsrp && (
+          <div className="mt-3 p-4 rounded-lg bg-zinc-800/60 border border-zinc-700">
+            <div className="flex items-baseline justify-between">
+              <p className="text-zinc-400 text-xs uppercase tracking-widest">Total MSRP</p>
+              <p className="text-white font-bold text-2xl tracking-tight">{usd(price.totalMsrp)}</p>
+            </div>
+            <div className="mt-2 space-y-1 text-sm">
+              {price.baseMsrp != null && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Base MSRP</span>
+                  <span>{usd(price.baseMsrp)}</span>
+                </div>
+              )}
+              {price.optTotalMsrp ? (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Options &amp; packages</span>
+                  <span>{usd(price.optTotalMsrp)}</span>
+                </div>
+              ) : null}
+              {price.dph != null && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Delivery, processing &amp; handling</span>
+                  <span>{usd(price.dph)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 grid grid-cols-2 gap-3">
           {colorName && (
             <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50">
@@ -133,12 +198,24 @@ function VehicleCard({ result }: { result: LookupResult }) {
                 )}
                 <p className="text-zinc-200 text-sm font-medium">{colorName}</p>
               </div>
+              {extColorCd && <p className="text-zinc-500 text-xs font-mono mt-1">Code {extColorCd}</p>}
             </div>
           )}
           {intColorName && (
             <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50">
               <p className="text-zinc-500 text-xs">Interior</p>
-              <p className="text-zinc-200 text-sm font-medium mt-0.5">{intColorName}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                {intColorSwatch && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={intColorSwatch}
+                    alt="Interior color"
+                    className="w-4 h-4 rounded-full border border-zinc-600 object-cover flex-shrink-0"
+                  />
+                )}
+                <p className="text-zinc-200 text-sm font-medium">{intColorName}</p>
+              </div>
+              {intColorCd && <p className="text-zinc-500 text-xs font-mono mt-1">Code {intColorCd}</p>}
             </div>
           )}
           <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50 col-span-2">
@@ -146,6 +223,31 @@ function VehicleCard({ result }: { result: LookupResult }) {
             <p className="text-zinc-200 text-xs font-mono mt-0.5">{parsed.vin}</p>
           </div>
         </div>
+
+        {specs.length > 0 && (
+          <div className="mt-4 rounded-lg bg-zinc-800/40 border border-zinc-700/50 divide-y divide-zinc-700/50">
+            {specs.map(s => (
+              <div key={s.label} className="flex justify-between gap-3 px-4 py-2.5">
+                <span className="text-zinc-500 text-xs uppercase tracking-wide flex-shrink-0">{s.label}</span>
+                <span className="text-zinc-200 text-sm text-right">{s.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {options.length > 0 && (
+          <div className="mt-4 p-4 rounded-lg bg-zinc-800/40 border border-zinc-700/50">
+            <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Options &amp; Packages</p>
+            <div className="space-y-1.5">
+              {options.map((o, i) => (
+                <div key={i} className="flex justify-between gap-3 text-sm">
+                  <span className="text-zinc-300">{o.marketingName}</span>
+                  <span className="text-zinc-400 font-medium flex-shrink-0">{usd(o.msrp)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Raw data disclosure */}
         <details className="mt-4">
