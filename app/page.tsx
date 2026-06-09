@@ -63,6 +63,7 @@ function StatusProgress({ category }: { category: string }) {
 
 function VehicleCard({ result }: { result: LookupResult }) {
   const { data, parsed } = result
+  const [photoView, setPhotoView] = useState<"exterior" | "interior">("exterior")
   const category = (data.dealerCategory as string) ?? "?"
   const info = CATEGORY_LABELS[category]
   const isArrived = category === "G"
@@ -87,8 +88,16 @@ function VehicleCard({ result }: { result: LookupResult }) {
     ? `${etaObj.currFromDate}${etaObj.currToDate ? " – " + etaObj.currToDate : ""}`
     : (data.eta as string | undefined)
 
-  const carImage = (data.media as Array<{ type: string; size?: string; href: string }> | undefined)
-    ?.find(m => m.type === "exterior" && m.size === "680_383_PNG")?.href
+  const media = data.media as Array<{ type: string; size?: string; href: string }> | undefined
+  const extImage = media?.find(m => m.type === "exterior" && m.size === "680_383_PNG")?.href
+  const intImage = media?.find(m => m.type === "interior" && m.size === "680_383_PNG")?.href
+
+  // Availability flags
+  const holdStatus = data.holdStatus as string | undefined
+  const isPreSold = data.isPreSold === true
+  const isHeld = Boolean(holdStatus) && holdStatus !== "None"
+  const unavailable = isPreSold || isHeld
+  const holdLabel = isPreSold ? "Pre-sold" : holdStatus === "DealerHold" ? "Dealer hold" : holdStatus
 
   // Pricing
   const price = data.price as
@@ -130,19 +139,62 @@ function VehicleCard({ result }: { result: LookupResult }) {
           </h2>
           {trim && <p className="text-white/70 text-xs mt-0.5 leading-tight">{trim}</p>}
         </div>
-        {isArrived && (
-          <span className="bg-white text-[#2D6A4F] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-            It&apos;s here!
-          </span>
-        )}
+        <div className="flex flex-col items-end gap-1.5">
+          {isArrived && (
+            <span className="bg-white text-[#2D6A4F] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+              It&apos;s here!
+            </span>
+          )}
+          {unavailable && (
+            <span className="bg-amber-400 text-amber-950 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+              {holdLabel}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Body */}
       <div className="px-6 py-5">
-        {carImage && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={carImage} alt="Vehicle" className="w-full rounded-lg mb-4 object-cover" />
+        {unavailable && (
+          <div className="mb-4 p-3 rounded-lg bg-amber-950/40 border border-amber-800/50 flex items-start gap-2">
+            <span className="text-amber-400 text-base leading-none mt-0.5">&#9888;</span>
+            <p className="text-amber-200 text-sm">
+              This vehicle is marked <span className="font-semibold">{holdLabel?.toLowerCase()}</span>
+              {isPreSold && isHeld ? " and on dealer hold" : ""} — it may already be spoken for. Confirm
+              availability with the dealer before counting on it.
+            </p>
+          </div>
         )}
+
+        {(() => {
+          const showInterior = photoView === "interior" && intImage
+          const img = showInterior ? intImage : extImage
+          if (!img) return null
+          return (
+            <div className="mb-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={img} alt={showInterior ? "Interior" : "Exterior"} className="w-full rounded-lg object-cover" />
+              {extImage && intImage && (
+                <div className="mt-2 flex gap-1.5">
+                  {(["exterior", "interior"] as const).map(view => (
+                    <button
+                      key={view}
+                      type="button"
+                      onClick={() => setPhotoView(view)}
+                      className={`text-xs font-medium px-3 py-1 rounded-full capitalize transition-colors ${
+                        photoView === view
+                          ? "bg-[#2D6A4F] text-white"
+                          : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      {view}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         <StatusProgress category={category} />
 
