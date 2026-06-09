@@ -19,6 +19,42 @@ const usd = (n?: number) =>
     ? n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })
     : undefined
 
+// Strip HTML tags + Toyota's bracket annotations (e.g. "[toyota_care]") to plain text.
+const cleanText = (s: string) =>
+  s
+    .replace(/<[^>]*>/g, "")
+    .replace(/\[[a-z0-9_]+\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+
+// camelCase category key -> "Title Case"
+const humanizeKey = (k: string) =>
+  k
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\band\b/gi, "&")
+    .replace(/^./, c => c.toUpperCase())
+
+type StdOptionItem = string | { name?: string; value?: string }
+
+function normalizeStdOptions(raw: unknown): { category: string; items: string[] }[] {
+  if (!raw || typeof raw !== "object") return []
+  const out: { category: string; items: string[] }[] = []
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(val)) continue
+    const items = (val as StdOptionItem[])
+      .map(entry => {
+        if (typeof entry === "string") return cleanText(entry)
+        const name = cleanText(entry.name ?? "")
+        const value = entry.value?.trim()
+        // "S" just means "standard" — no need to show it; show real values like "$0 (No Cost)".
+        return value && value !== "S" ? `${name} — ${value}` : name
+      })
+      .filter(Boolean)
+    if (items.length) out.push({ category: humanizeKey(key), items })
+  }
+  return out
+}
+
 function StatusProgress({ category }: { category: string }) {
   const currentStep = CATEGORY_LABELS[category]?.step ?? 0
 
@@ -97,7 +133,6 @@ function VehicleCard({ result }: { result: LookupResult }) {
   const isPreSold = data.isPreSold === true
   const isHeld = Boolean(holdStatus) && holdStatus !== "None"
   const unavailable = isPreSold || isHeld
-  const holdLabel = isPreSold ? "Pre-sold" : holdStatus === "DealerHold" ? "Dealer hold" : holdStatus
 
   // Pricing
   const price = data.price as
@@ -127,6 +162,8 @@ function VehicleCard({ result }: { result: LookupResult }) {
   if (seating) specs.push({ label: "Seating", value: `${seating} passengers` })
   if (stockNum) specs.push({ label: "Stock #", value: stockNum })
 
+  const stdOptions = normalizeStdOptions(data.standardOptions)
+
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
       {/* Header */}
@@ -146,8 +183,8 @@ function VehicleCard({ result }: { result: LookupResult }) {
             </span>
           )}
           {unavailable && (
-            <span className="bg-amber-400 text-amber-950 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-              {holdLabel}
+            <span className="bg-white/15 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+              Reserved
             </span>
           )}
         </div>
@@ -156,12 +193,12 @@ function VehicleCard({ result }: { result: LookupResult }) {
       {/* Body */}
       <div className="px-6 py-5">
         {unavailable && (
-          <div className="mb-4 p-3 rounded-lg bg-amber-950/40 border border-amber-800/50 flex items-start gap-2">
-            <span className="text-amber-400 text-base leading-none mt-0.5">&#9888;</span>
-            <p className="text-amber-200 text-sm">
-              This vehicle is marked <span className="font-semibold">{holdLabel?.toLowerCase()}</span>
-              {isPreSold && isHeld ? " and on dealer hold" : ""} — it may already be spoken for. Confirm
-              availability with the dealer before counting on it.
+          <div className="mb-4 p-3 rounded-lg bg-zinc-800/60 border border-zinc-700 flex items-start gap-2">
+            <span className="text-[#2D6A4F] text-base leading-none mt-0.5">&#10003;</span>
+            <p className="text-zinc-300 text-sm">
+              This build is <span className="font-semibold text-white">reserved</span>. If it&apos;s your
+              order, you&apos;re all set — we&apos;ll keep an eye on it for you. If you haven&apos;t placed
+              an order on this VIN, it&apos;s likely already claimed by another buyer.
             </p>
           </div>
         )}
@@ -240,75 +277,108 @@ function VehicleCard({ result }: { result: LookupResult }) {
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {colorName && (
-            <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50">
-              <p className="text-zinc-500 text-xs">Exterior</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                {colorHex && (
-                  <span className="w-3 h-3 rounded-full border border-zinc-600 flex-shrink-0" style={{ background: `#${colorHex}` }} />
-                )}
-                <p className="text-zinc-200 text-sm font-medium">{colorName}</p>
-              </div>
-              {extColorCd && <p className="text-zinc-500 text-xs font-mono mt-1">Code {extColorCd}</p>}
-            </div>
-          )}
-          {intColorName && (
-            <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50">
-              <p className="text-zinc-500 text-xs">Interior</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                {intColorSwatch && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={intColorSwatch}
-                    alt="Interior color"
-                    className="w-4 h-4 rounded-full border border-zinc-600 object-cover flex-shrink-0"
-                  />
-                )}
-                <p className="text-zinc-200 text-sm font-medium">{intColorName}</p>
-              </div>
-              {intColorCd && <p className="text-zinc-500 text-xs font-mono mt-1">Code {intColorCd}</p>}
-            </div>
-          )}
-          <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50 col-span-2">
-            <p className="text-zinc-500 text-xs">VIN</p>
-            <p className="text-zinc-200 text-xs font-mono mt-0.5">{parsed.vin}</p>
-          </div>
-        </div>
+        {/* Full vehicle details — collapsed so the tracking signup stays near the top */}
+        <details className="mt-4 group">
+          <summary className="flex items-center justify-between cursor-pointer select-none rounded-lg bg-zinc-800/40 border border-zinc-700/50 px-4 py-3 hover:bg-zinc-800/70 transition-colors">
+            <span className="text-zinc-300 text-sm font-medium">Full vehicle details</span>
+            <svg className="w-4 h-4 text-zinc-500 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
 
-        {specs.length > 0 && (
-          <div className="mt-4 rounded-lg bg-zinc-800/40 border border-zinc-700/50 divide-y divide-zinc-700/50">
-            {specs.map(s => (
-              <div key={s.label} className="flex justify-between gap-3 px-4 py-2.5">
-                <span className="text-zinc-500 text-xs uppercase tracking-wide flex-shrink-0">{s.label}</span>
-                <span className="text-zinc-200 text-sm text-right">{s.value}</span>
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            {colorName && (
+              <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50 flex flex-col">
+                <p className="text-zinc-500 text-xs">Exterior</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {colorHex && (
+                    <span className="w-4 h-4 rounded-full border border-zinc-600 flex-shrink-0" style={{ background: `#${colorHex}` }} />
+                  )}
+                  <p className="text-zinc-200 text-sm font-medium">{colorName}</p>
+                </div>
+                {extColorCd && <p className="text-zinc-500 text-xs font-mono mt-auto pt-2">Code {extColorCd}</p>}
               </div>
-            ))}
+            )}
+            {intColorName && (
+              <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50 flex flex-col">
+                <p className="text-zinc-500 text-xs">Interior</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {intColorSwatch && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={intColorSwatch}
+                      alt="Interior color"
+                      className="w-4 h-4 rounded-full border border-zinc-600 object-cover flex-shrink-0"
+                    />
+                  )}
+                  <p className="text-zinc-200 text-sm font-medium">{intColorName}</p>
+                </div>
+                {intColorCd && <p className="text-zinc-500 text-xs font-mono mt-auto pt-2">Code {intColorCd}</p>}
+              </div>
+            )}
+            <div className="p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50 col-span-2">
+              <p className="text-zinc-500 text-xs">VIN</p>
+              <p className="text-zinc-200 text-xs font-mono mt-0.5">{parsed.vin}</p>
+            </div>
           </div>
-        )}
 
-        {options.length > 0 && (
-          <div className="mt-4 p-4 rounded-lg bg-zinc-800/40 border border-zinc-700/50">
-            <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Options &amp; Packages</p>
-            <div className="space-y-1.5">
-              {options.map((o, i) => (
-                <div key={i} className="flex justify-between gap-3 text-sm">
-                  <span className="text-zinc-300">{o.marketingName}</span>
-                  <span className="text-zinc-400 font-medium flex-shrink-0">{usd(o.msrp)}</span>
+          {specs.length > 0 && (
+            <div className="mt-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50 divide-y divide-zinc-700/50">
+              {specs.map(s => (
+                <div key={s.label} className="flex justify-between gap-3 px-4 py-2.5">
+                  <span className="text-zinc-500 text-xs uppercase tracking-wide flex-shrink-0">{s.label}</span>
+                  <span className="text-zinc-200 text-sm text-right">{s.value}</span>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Raw data disclosure */}
-        <details className="mt-4">
-          <summary className="text-zinc-600 text-xs cursor-pointer hover:text-zinc-400 transition-colors">
-            View raw API response
-          </summary>
-          <pre className="mt-2 text-xs text-zinc-500 bg-zinc-950 rounded-lg p-4 overflow-auto max-h-64 leading-relaxed">
-            {JSON.stringify(data, null, 2)}
-          </pre>
+          {options.length > 0 && (
+            <div className="mt-3 p-4 rounded-lg bg-zinc-800/40 border border-zinc-700/50">
+              <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Options &amp; Packages</p>
+              <div className="space-y-1.5">
+                {options.map((o, i) => (
+                  <div key={i} className="flex justify-between gap-3 text-sm">
+                    <span className="text-zinc-300">{o.marketingName}</span>
+                    <span className="text-zinc-400 font-medium flex-shrink-0">{usd(o.msrp)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {stdOptions.length > 0 && (
+            <details className="mt-3 rounded-lg bg-zinc-800/40 border border-zinc-700/50 px-4 py-3">
+              <summary className="text-zinc-300 text-sm font-medium cursor-pointer select-none hover:text-white transition-colors">
+                Standard equipment
+              </summary>
+              <div className="mt-3 space-y-4">
+                {stdOptions.map(group => (
+                  <div key={group.category}>
+                    <p className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">{group.category}</p>
+                    <ul className="space-y-1">
+                      {group.items.map((item, i) => (
+                        <li key={i} className="text-zinc-300 text-sm flex gap-2">
+                          <span className="text-zinc-600 flex-shrink-0">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {/* Raw data disclosure */}
+          <details className="mt-3">
+            <summary className="text-zinc-600 text-xs cursor-pointer hover:text-zinc-400 transition-colors">
+              View raw API response
+            </summary>
+            <pre className="mt-2 text-xs text-zinc-500 bg-zinc-950 rounded-lg p-4 overflow-auto max-h-64 leading-relaxed">
+              {JSON.stringify(data, null, 2)}
+            </pre>
+          </details>
         </details>
       </div>
     </div>
