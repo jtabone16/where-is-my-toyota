@@ -14,12 +14,26 @@ export interface TrackedVehicle {
   nickname: string
   lastSnapshot: VehicleSnapshot
   lastChecked: number
+  // Whether the one-time welcome/confirmation email has been sent. Older
+  // records (created before the welcome feature) won't have this field, so
+  // `welcomed !== true` correctly treats them as "not yet welcomed".
+  welcomed?: boolean
+  // First time this email+VIN was registered. Optional for legacy records.
+  createdAt?: number
 }
 
 const ALL_TRACKS_KEY = "tracks:all"
 
 function trackKey(email: string, vin: string) {
   return `track:${email}:${vin}`
+}
+
+export async function getTracking(
+  email: string,
+  vin: string
+): Promise<TrackedVehicle | null> {
+  const redis = getRedis()
+  return (await redis.get<TrackedVehicle>(trackKey(email, vin))) ?? null
 }
 
 export async function saveTracking(vehicle: TrackedVehicle): Promise<void> {

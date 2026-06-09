@@ -425,6 +425,7 @@ function TrackForm({ result }: { result: LookupResult }) {
   const [nickname, setNickname] = useState("")
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [already, setAlready] = useState(false)
   const [error, setError] = useState("")
 
   async function handleSubmit(e: React.FormEvent) {
@@ -441,10 +442,11 @@ function TrackForm({ result }: { result: LookupResult }) {
           nickname: nickname || undefined,
         }),
       })
+      const json = await res.json()
       if (!res.ok) {
-        const json = await res.json()
         throw new Error(json.error ?? "Failed to save")
       }
+      setAlready(Boolean(json.alreadyTracking))
       setDone(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
@@ -458,8 +460,14 @@ function TrackForm({ result }: { result: LookupResult }) {
       <div className="mt-3 p-4 rounded-lg bg-green-950/40 border border-green-800/40 flex items-center gap-3">
         <span className="text-green-400 text-xl">✓</span>
         <div>
-          <p className="text-green-300 font-medium">You&apos;re on the list!</p>
-          <p className="text-green-500 text-sm">We&apos;ll email {email} the moment the status changes.</p>
+          <p className="text-green-300 font-medium">
+            {already ? "You're already tracking this 👍" : "You're on the list!"}
+          </p>
+          <p className="text-green-500 text-sm">
+            {already
+              ? `No change needed — we'll keep emailing ${email} when the status changes.`
+              : `We'll email ${email} the moment the status changes.`}
+          </p>
         </div>
       </div>
     )

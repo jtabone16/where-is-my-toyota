@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { parseVSpecUrl, fetchVSpec, extractSnapshot } from "@/lib/toyota"
-import { saveTracking } from "@/lib/db"
+import { saveTracking, getTracking } from "@/lib/db"
 import { trackLimiter } from "@/lib/ratelimit"
 import { sendWelcomeEmail } from "@/lib/email"
 
@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not parse VSpec URL" }, { status: 422 })
   }
 
+  // Is this email already tracking this VIN? Drives dedup decisions below.
+  const existing = await getTracking(email, parsed.vin)
+
   let lastSnapshot = { dealerCategory: "A" }
   try {
     const data = await fetchVSpec(parsed)
@@ -35,27 +38,45 @@ export async function POST(req: NextRequest) {
     // Non-fatal: save with fallback
   }
 
-  const resolvedNickname = nickname || parsed.vin
+  // On re-signup, KEEP the previously stored snapshot as the alert baseline.
+  // Re-baselining to a freshly-fetched snapshot here could silently swallow a
+  // status change that happened since the last signup — i.e. miss an alert.
+  // (We still refresh nickname so the user can rename a tracked vehicle.)
+  const baselineSnapshot = existing?.lastSnapshot ?? lastSnapshot
+  const resolvedNickname = nickname || existing?.nickname || parsed.vin
+
+  // Only welcome once. Existing records that predate the welcome feature have
+  // `welcomed` undefined, so they still get a single welcome on their next
+  // signup. Already-welcomed records are not re-emailed.
+  const shouldWelcome = existing?.welcomed !== true
 
   await saveTracking({
     ...parsed,
     email,
     nickname: resolvedNickname,
-    lastSnapshot,
-    lastChecked: Date.now(),
+    lastSnapshot: baselineSnapshot,
+    lastChecked: existing?.lastChecked ?? Date.now(),
+    welcomed: existing?.welcomed === true || shouldWelcome,
+    createdAt: existing?.createdAt ?? Date.now(),
   })
 
   // Confirmation email is best-effort — never fail the signup if mail hiccups.
-  try {
-    await sendWelcomeEmail({
-      to: email,
-      vin: parsed.vin,
-      nickname: resolvedNickname,
-      snapshot: lastSnapshot,
-    })
-  } catch (err) {
-    console.error("welcome email failed:", err instanceof Error ? err.message : err)
+  if (shouldWelcome) {
+    try {
+      await sendWelcomeEmail({
+        to: email,
+        vin: parsed.vin,
+        nickname: resolvedNickname,
+        snapshot: baselineSnapshot,
+      })
+    } catch (err) {
+      console.error("welcome email failed:", err instanceof Error ? err.message : err)
+    }
   }
 
-  return NextResponse.json({ ok: true, vin: parsed.vin })
+  return NextResponse.json({
+    ok: true,
+    vin: parsed.vin,
+    alreadyTracking: Boolean(existing),
+  })
 }
