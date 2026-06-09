@@ -1,0 +1,30 @@
+name: WAF token healthcheck
+
+# Defense-in-depth: independently of the refresher, ping /api/status every
+# 30 min and FAIL the job if the cached WAF token is missing or stale. A failed
+# run triggers GitHub's built-in failure email to repo admins — so you hear
+# about an outage before a user does, instead of after.
+#
+# This does NOT fix anything; it just alerts. The refresher (overlapping runs)
+# is what keeps the token fresh.
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/status
+        run: |
+          body=$(curl -fsS --max-time 20 https://where-is-my-toyota.vercel.app/api/status) || {
+            echo "::error::/api/status did not respond"; exit 1;
+          }
+          echo "status response: $body"
+          echo "$body" | grep -q '"status":"ok"' || {
+            echo "::error::WAF token is not healthy — the refresher may be down"; exit 1;
+          }
+          echo "WAF token healthy."

@@ -2,37 +2,41 @@ name: Refresh WAF token
 
 # Solves the Toyota AWS WAF challenge and caches a reusable token in Redis.
 #
-# GitHub's scheduled cron has a 5-min minimum and is frequently delayed under
-# load, which would leave gaps if the token TTL is short. To get a reliable
-# cadence we run ONE job that loops internally for ~50 min, refreshing every
-# REFRESH_INTERVAL seconds, and let the schedule re-launch it.
+# Reliability design — OVERLAPPING long-lived runs:
+#   GitHub's scheduled cron has a 5-min minimum and is frequently delayed by
+#   30-60+ min under load. The old setup (50-min loop, relaunch every 55 min)
+#   left a gap whenever the next run was late: the token's TTL expired before a
+#   fresh run started, and the app returned "no WAF token cached".
 #
-# NOTE: free GitHub Actions minutes are unlimited for public repos and 2,000/mo
-# for private repos. A ~50-min looping job ≈ 50 min per run. If this repo is
-# private, widen the cron interval or shorten LOOP_MINUTES to stay in budget.
+#   Fix: each run loops for ~5.5h (near GitHub's 6h job cap), refreshing every
+#   REFRESH_INTERVAL seconds, and we schedule a NEW run every 4h. Because the
+#   loop (5.5h) is longer than the schedule interval (4h), consecutive runs
+#   OVERLAP by ~90 min. There is intentionally NO concurrency serialization, so
+#   the incoming run is already refreshing the token before the outgoing run
+#   exits — eliminating the gap even when the scheduler is ~90 min late.
+#
+# NOTE: free GitHub Actions minutes are unlimited for public repos. At most two
+# runs overlap, so this stays well within reason. If this repo is ever made
+# private, shorten LOOP_MINUTES / widen the cron to control budget.
 
 on:
   schedule:
-    - cron: '*/55 * * * *' # relaunch shortly before the loop self-exits
+    - cron: '0 */4 * * *' # every 4h; the 5.5h loop overlaps the next run
   workflow_dispatch: {} # allow manual runs
 
-concurrency:
-  group: refresh-waf-token
-  cancel-in-progress: false
+# NO concurrency group on purpose — overlapping runs are what closes the gap.
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 360 # GitHub's hard job cap is 6h
     env:
       UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
       UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
       SEED_VSPEC_URL: ${{ secrets.SEED_VSPEC_URL }}
-      # Refresh cadence and total loop duration. Tune REFRESH_INTERVAL to the
-      # measured token TTL (start conservative).
       REFRESH_INTERVAL: '240' # seconds between refreshes (4 min)
-      LOOP_MINUTES: '50' # total wall-clock to loop before exiting
-      TOKEN_TTL_SECONDS: '600' # Redis expiry on the cached token (10 min)
+      LOOP_MINUTES: '330' # ~5.5h loop, leaving headroom under the 6h cap
+      TOKEN_TTL_SECONDS: '1200' # 20-min Redis expiry — cushions brief gaps
     steps:
       - uses: actions/checkout@v4
 
