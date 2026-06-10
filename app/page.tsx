@@ -94,7 +94,7 @@ function StatusProgress({ category }: { category: string }) {
                   <span>{stage.icon}</span>
                 )}
               </div>
-              <span className={`mt-2 text-xs font-medium ${active ? "text-[#2D6A4F]" : done ? "text-zinc-300" : "text-zinc-600"}`}>
+              <span className={`mt-2 text-xs font-medium ${arrivedFinal ? "text-zinc-100" : active ? "text-[#2D6A4F]" : done ? "text-zinc-300" : "text-zinc-600"}`}>
                 {stage.label}
               </span>
             </div>
