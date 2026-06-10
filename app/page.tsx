@@ -192,12 +192,12 @@ function VehicleCard({
         <div className="flex items-start gap-2">
           <div className="flex flex-col items-end gap-1.5">
             {isArrived && (
-              <span className="bg-white text-[#2D6A4F] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+              <span className="bg-white text-[#2D6A4F] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider whitespace-nowrap">
                 It&apos;s here!
               </span>
             )}
             {unavailable && (
-              <span className="bg-white/15 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+              <span className="bg-white/15 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider whitespace-nowrap">
                 Reserved
               </span>
             )}
