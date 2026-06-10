@@ -68,12 +68,18 @@ function StatusProgress({ category }: { category: string }) {
       {STAGES.map((stage, i) => {
         const done = i <= currentStep
         const active = i === currentStep
+        const isLast = i === STAGES.length - 1
+        // Reaching the final stage means "arrived" — render it solid/celebratory
+        // rather than as a hollow in-progress current step.
+        const arrivedFinal = active && isLast
         return (
           <div key={stage.key} className="flex items-center flex-1 last:flex-none">
             <div className="flex flex-col items-center">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all ${
-                  active
+                  arrivedFinal
+                    ? "border-[#2D6A4F] bg-[#2D6A4F] scale-110"
+                    : active
                     ? "border-[#2D6A4F] bg-[#2D6A4F]/10 scale-110"
                     : done
                     ? "border-[#2D6A4F] bg-[#2D6A4F]"
