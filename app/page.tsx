@@ -152,8 +152,11 @@ function VehicleCard({
   const isPreSold = data.isPreSold === true
   const isHeld = Boolean(holdStatus) && holdStatus !== "None"
   const unavailable = isPreSold || isHeld
-  const readyForPickup = data.isAvailableForAppointment === true
-  const inDealerPrep = isArrived && data.isAvailableForAppointment === false
+  // isAvailableForAppointment only carries meaning for unsold inventory —
+  // for pre-sold/held cars Toyota never flips it, so don't infer prep status.
+  const readyForPickup = !unavailable && data.isAvailableForAppointment === true
+  const inDealerPrep = !unavailable && isArrived && data.isAvailableForAppointment === false
+  const arrivedSoldOrder = isArrived && unavailable
 
   // Pricing
   const price = data.price as
@@ -251,6 +254,16 @@ function VehicleCard({
               <span className="font-semibold text-white">In dealer prep.</span> Your vehicle has arrived
               but isn&apos;t ready for pickup yet — it&apos;s likely going through inspection, detailing,
               and final paperwork. We&apos;ll let you know when that changes.
+            </p>
+          </div>
+        )}
+        {arrivedSoldOrder && (
+          <div className="mb-4 p-3 rounded-lg bg-zinc-800/60 border border-zinc-700 flex items-start gap-2">
+            <span className="text-amber-400 text-base leading-none mt-0.5">&#9881;</span>
+            <p className="text-zinc-300 text-sm">
+              <span className="font-semibold text-white">Arrived at your dealer.</span> Toyota&apos;s
+              system doesn&apos;t report prep status for sold orders — check with your salesperson on
+              pickup timing.
             </p>
           </div>
         )}
