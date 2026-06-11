@@ -140,7 +140,7 @@ function VehicleCard({
 
   const etaObj = data.eta as { currFromDate?: string; currToDate?: string } | undefined
   const rawEta = etaObj?.currFromDate
-    ? `${etaObj.currFromDate}${etaObj.currToDate ? " – " + etaObj.currToDate : ""}`
+    ? `${etaObj.currFromDate}${etaObj.currToDate && etaObj.currToDate !== etaObj.currFromDate ? " – " + etaObj.currToDate : ""}`
     : (data.eta as string | undefined)
 
   const media = data.media as Array<{ type: string; size?: string; href: string }> | undefined
@@ -296,13 +296,24 @@ function VehicleCard({
 
         <StatusProgress category={category} />
 
-        <div className="mt-5 p-4 rounded-lg bg-zinc-800/60 border border-zinc-700">
-          <p className="text-zinc-400 text-xs uppercase tracking-widest mb-1">Current Status</p>
-          <p className="text-white font-semibold text-lg">{info?.label ?? category}</p>
-          <p className="text-zinc-400 text-sm mt-0.5">{info?.description}</p>
+        <div
+          className={`mt-5 p-4 rounded-lg ${
+            isArrived ? "bg-green-950/40 border border-green-800/40" : "bg-zinc-800/60 border border-zinc-700"
+          }`}
+        >
+          <p className={`text-xs uppercase tracking-widest mb-1 ${isArrived ? "text-green-400" : "text-zinc-400"}`}>
+            Current Status
+          </p>
+          <p className={`font-semibold text-lg ${isArrived ? "text-green-300" : "text-white"}`}>
+            {info?.label ?? category}
+          </p>
+          <p className={`text-sm mt-0.5 ${isArrived ? "text-green-400/80" : "text-zinc-400"}`}>
+            {info?.description}
+            {isArrived && etaObj?.currFromDate ? ` · Arrived ${etaObj.currFromDate}` : ""}
+          </p>
         </div>
 
-        {rawEta && (
+        {!isArrived && rawEta && (
           <div className="mt-3 p-4 rounded-lg bg-green-950/40 border border-green-800/40">
             <p className="text-green-400 text-xs uppercase tracking-widest mb-1">ETA Window</p>
             <p className="text-green-300 font-semibold">{rawEta}</p>
